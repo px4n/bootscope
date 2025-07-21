@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/ci.yml"
+      - "Makefile"
+      - ".golangci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: "Go Lint and Config Check"
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.10"
+          cache: true
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+          skip-cache: false
+
+      - name: Verify example config is up-to-date
+        run: |
+          go run ./cmd/bootscope config generate .tmp.bootscope.toml.example
+          if ! diff -q bootscope.toml.example .tmp.bootscope.toml.example > /dev/null; then
+            echo "❌ ERROR: bootscope.toml.example is out of date!"
+            echo "Please run 'make generate-config' to update it"
+            rm -f .tmp.bootscope.toml.example
+            exit 1
+          else
+            echo "✅ Example configuration is up-to-date"
+            rm -f .tmp.bootscope.toml.example
+          fi
+
+  test:
+    name: "Go Test and Build Check"
+    runs-on: ubuntu-latest
+    needs: lint
+    strategy:
+      matrix:
+        go-version: ["1.23.10"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: true
+
+      - name: Run go tests with race detection
+        run: go test -v -race -short -count=1 -parallel=4 ./...
+
+      - name: Run integration tests
+        run: go test -v -tags=integration ./test/integration/...
+
+      - name: Build and test binary
+        run: |
+          go build -o kubectl-bootscope ./cmd/bootscope
+          ./kubectl-bootscope version
+          ./kubectl-bootscope --help
+
+  build-cross-platform:
+    name: "Go Build Check"
+    runs-on: ubuntu-latest
+    needs: [test]
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: arm64
+          - os: darwin
+            arch: amd64
+          - os: darwin
+            arch: arm64
+          - os: windows
+            arch: amd64
+            ext: .exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.10"
+          cache: true
+
+      - name: Build ${{ matrix.os }}/${{ matrix.arch }}
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+        run: |
+          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+          COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "none")
+          DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          OUTPUT_NAME="kubectl-bootscope-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}"
+
+          echo "Building ${OUTPUT_NAME}..."
+          go build -ldflags="-X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE} -X main.builtBy=ci" -o ${OUTPUT_NAME} ./cmd/bootscope
+
+          # Verify binary was created
+          if [[ ! -f ${OUTPUT_NAME} ]]; then
+            echo "❌ Build failed - binary not found!"
+            exit 1
+          fi
+
+          echo "✅ Successfully built ${OUTPUT_NAME}"

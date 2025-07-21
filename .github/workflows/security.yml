@@ -1,0 +1,120 @@
+name: Security Scan
+
+on:
+  pull_request:
+    branches: [develop]
+  schedule:
+    - cron: "0 19 * * 6"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  govulncheck:
+    name: "Govulncheck"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          check-latest: true
+
+      - name: Run govulncheck
+        uses: golang/govulncheck-action@v1
+        with:
+          go-version-file: "go.mod"
+          output-format: sarif
+          output-file: govulncheck-results.sarif
+
+      - name: Upload govulncheck results
+        uses: github/codeql-action/upload-sarif@v3
+        if: success() || failure()
+        with:
+          sarif_file: govulncheck-results.sarif
+          category: govulncheck
+
+  gosec:
+    name: "Gosec Security Scanner"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run gosec Security Scanner
+        uses: securego/gosec@master
+        with:
+          args: "-fmt sarif -out gosec-results.sarif -severity medium ./..."
+
+      - name: Upload gosec results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: success() || failure()
+        with:
+          sarif_file: gosec-results.sarif
+          category: gosec
+
+  trivy:
+    name: "Trivy Vulnerability Scanner"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          format: "sarif"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH,MEDIUM"
+          exit-code: "0"
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: success() || failure()
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy
+
+  nancy:
+    name: "Nancy Dependency Check"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          check-latest: true
+
+      - name: Generate go.list for Nancy
+        run: go list -json -deps ./... > go.list
+
+      - name: Run Nancy
+        uses: sonatype-nexus-community/nancy-github-action@main
+        continue-on-error: true
+        with:
+          goListFile: go.list
+
+  staticcheck:
+    name: "Staticcheck"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          check-latest: true
+
+      - name: Install staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@latest
+
+      - name: Run staticcheck
+        run: staticcheck ./...

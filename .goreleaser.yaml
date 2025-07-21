@@ -1,0 +1,152 @@
+version: 2
+project_name: bootscope
+
+source:
+  enabled: false
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: bootscope
+    main: ./cmd/bootscope
+    binary: kubectl-bootscope
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - "6"
+      - "7"
+    ignore:
+      # Unsupported combinations
+      - goos: windows
+        goarch: arm64
+      - goos: windows
+        goarch: arm
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+      - -X main.builtBy=goreleaser
+
+# Upload raw binaries only
+archives:
+  - formats: [binary]
+    name_template: >-
+      kubectl-bootscope-
+      {{- .Version }}-
+      {{- .Os }}-
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end -}}
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - Merge pull request
+      - Merge branch
+      - "^Merge tag"
+      - "^Merge remote"
+  groups:
+    # Breaking changes should be shown first
+    - title: "Breaking Changes"
+      regexp: "^.*?!:.+$"
+      order: 0
+    # Features
+    - title: "Features"
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 100
+    # Bug fixes
+    - title: "Bug Fixes"
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 200
+    # Performance improvements
+    - title: "Performance Improvements"
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 300
+    # Code refactoring
+    - title: "Code Refactoring"
+      regexp: '^.*?refactor(\([[:word:]]+\))??!?:.+$'
+      order: 400
+    # Documentation
+    - title: "Documentation"
+      regexp: '^.*?docs(\([[:word:]]+\))??!?:.+$'
+      order: 500
+    # Tests
+    - title: "Tests"
+      regexp: '^.*?test(\([[:word:]]+\))??!?:.+$'
+      order: 600
+    # Build system / CI
+    - title: "Build System / CI"
+      regexp: '^.*?(build|ci)(\([[:word:]]+\))??!?:.+$'
+      order: 700
+    # Chores and maintenance
+    - title: "Chores"
+      regexp: '^.*?chore(\([[:word:]]+\))??!?:.+$'
+      order: 800
+    # Style changes
+    - title: "Style Changes"
+      regexp: '^.*?style(\([[:word:]]+\))??!?:.+$'
+      order: 900
+    # Reverts
+    - title: "Reverts"
+      regexp: '^.*?revert(\([[:word:]]+\))??!?:.+$'
+      order: 950
+    # Other changes
+    - title: "Other Changes"
+      order: 999
+
+release:
+  name_template: "{{.Tag}}"
+  draft: false
+
+  # Mark as prerelease for alpha
+  prerelease: auto
+
+  extra_files:
+    - glob: ./bootscope.toml.example
+
+  header: |
+    ## ALPHA SOFTWARE - NOT FOR PRODUCTION USE
+
+    **BootScope is currently in ALPHA stage and should not be used in production environments.**
+
+    This release may contain bugs, incomplete features, and breaking changes. Use at your own risk and please report any issues you encounter.
+
+  footer: |
+    ## Installation
+
+    1. Download the appropriate binary for your OS from the assets below
+    2. Make it executable: `chmod +x kubectl-bootscope-*`
+    3. Move to your PATH: `sudo mv kubectl-bootscope-* /usr/local/bin/kubectl-bootscope`
+    4. (Optional) Download `bootscope.toml.example` for configuration reference
+
+    ### Quick Install (Linux x86_64)
+    ```bash
+    curl -LO https://github.com/px4n/bootscope/releases/download/{{.Tag}}/kubectl-bootscope-{{.Tag}}-linux-x86_64
+    chmod +x kubectl-bootscope-{{.Tag}}-linux-x86_64
+    sudo mv kubectl-bootscope-{{.Tag}}-linux-x86_64 /usr/local/bin/kubectl-bootscope
+    kubectl bootscope version
+    ```
+
+    ## Documentation
+
+    - [Installation Guide](https://github.com/px4n/bootscope/blob/develop/docs/INSTALL.md)
+    - [README](https://github.com/px4n/bootscope/blob/develop/README.md)

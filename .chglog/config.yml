@@ -1,0 +1,57 @@
+style: github
+template: CHANGELOG.tpl.md
+info:
+  title: CHANGELOG
+  repository_url: https://github.com/px4n/bootscope
+options:
+  commits:
+    filters:
+      Type:
+        - feat
+        - fix
+        - perf
+        - refactor
+        - docs
+        - test
+        - build
+        - ci
+        - chore
+        - style
+        - revert
+  header:
+    pattern: "^(\\w*)(?:\\(([\\w\\$\\.\\-\\*\\s]*)\\))?\\:\\s(.*)$"
+    pattern_maps:
+      - Type
+      - Scope
+      - Subject
+  notes:
+    keywords:
+      - BREAKING CHANGE
+      - BREAKING-CHANGE
+  commit_groups:
+    group_by: Type
+    sort_by: Title
+    title_order:
+      - feat
+      - fix
+      - perf
+      - refactor
+      - docs
+      - test
+      - build
+      - ci
+      - chore
+      - style
+      - revert
+    title_maps:
+      feat: Features
+      fix: Bug Fixes
+      perf: Performance Improvements
+      refactor: Code Refactoring
+      docs: Documentation
+      test: Tests
+      build: Build System
+      ci: Continuous Integration
+      chore: Chores
+      style: Style Changes
+      revert: Reverts
