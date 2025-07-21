@@ -1,0 +1,80 @@
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    # Default linters
+    - errcheck
+    - gosimple
+    - ineffassign
+    - typecheck
+    - unused
+
+    # Code quality
+    - goimports
+    - misspell
+    - unconvert
+    - nakedret
+
+    # Best practices
+    - copyloopvar
+    - bodyclose
+    - noctx
+    - rowserrcheck
+    - sqlclosecheck
+
+  disable:
+    - govet # runs as separate pre-commit hook
+    - gofmt # runs as separate pre-commit hook
+    - staticcheck # runs in security gh workflow
+    - gosec # runs in security gh workflow
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+
+  gocyclo:
+    min-complexity: 20 # relaxed for alpha
+
+  nakedret:
+    max-func-lines: 50 # only flag really long functions
+
+issues:
+  exclude-dirs-use-default: true
+  exclude-dirs:
+    - vendor
+    - test/integration
+
+  exclude-rules:
+    # Exclude some linters from test files
+    - path: _test\.go
+      linters:
+        - gosec
+        - errcheck
+
+    # Allow unused parameters in test helpers
+    - path: _test\.go
+      text: "unused parameter"
+
+    # Allow dot imports in tests for Ginkgo/Gomega
+    - path: _test\.go
+      text: "dot-imports"
+
+    # Exclude vendor directory
+    - path: vendor/
+      linters:
+        - typecheck
+        - errcheck
+        - gosec
+
+  # Don't limit the number of issues
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+  # Show all issues (not just new ones)
+  new: false
+
+  # Exclude some common issues that are OK for alpha
+  exclude:
+    - "exported .* should have comment or be unexported"
+    - "ST1003:" # underscores in package names (test packages)

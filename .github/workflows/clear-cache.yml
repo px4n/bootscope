@@ -1,0 +1,79 @@
+name: Clear Cache on PR Merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (show what would be deleted without actually deleting)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  clear-cache:
+    name: "Clear Cache"
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clear PR caches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "Clearing caches for merged PR #${{ github.event.pull_request.number }}"
+          else
+            echo "Manually triggered cache cleanup"
+          fi
+
+          DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
+          if [[ "$DRY_RUN" == "true" ]]; then
+            echo "DRY RUN MODE - No caches will be deleted"
+          fi
+
+          # List all caches
+          echo "Fetching cache list..."
+          CACHES=$(gh api repos/${REPO}/actions/caches --jq '.actions_caches[]')
+
+          if [ -z "$CACHES" ]; then
+            echo "No caches found to clear"
+            exit 0
+          fi
+
+          # Clear setup-go caches (these are the biggest)
+          echo "Clearing setup-go caches..."
+          gh api repos/${REPO}/actions/caches \
+            --jq '.actions_caches[] | select(.key | startswith("setup-go-")) | .id' | \
+            while read -r cache_id; do
+              if [[ "$DRY_RUN" == "true" ]]; then
+                echo "[DRY RUN] Would delete cache ID: ${cache_id}"
+              else
+                echo "Deleting cache ID: ${cache_id}"
+                gh api repos/${REPO}/actions/caches/${cache_id} -X DELETE || true
+              fi
+            done
+
+          # Clear golangci-lint caches
+          echo "Clearing golangci-lint caches..."
+          gh api repos/${REPO}/actions/caches \
+            --jq '.actions_caches[] | select(.key | startswith("golangci-lint.cache-")) | .id' | \
+            while read -r cache_id; do
+              if [[ "$DRY_RUN" == "true" ]]; then
+                echo "[DRY RUN] Would delete cache ID: ${cache_id}"
+              else
+                echo "Deleting cache ID: ${cache_id}"
+                gh api repos/${REPO}/actions/caches/${cache_id} -X DELETE || true
+              fi
+            done
+
+          # Show remaining cache usage
+          echo "Cache cleanup complete. Fetching updated cache usage..."
+          gh api repos/${REPO}/actions/cache/usage --jq '"Repository cache usage: \(.active_caches_size_in_bytes | . / 1024 / 1024 | round)MB (\(.active_caches_count) caches)"'

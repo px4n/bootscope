@@ -1,0 +1,71 @@
+repos:
+  # Go formatting and linting - runs at pre-commit stage
+  - repo: local
+    hooks:
+      - id: golangci-lint
+        name: golangci-lint
+        entry: golangci-lint run --timeout=5m
+        language: system
+        types: [go]
+        pass_filenames: false
+        stages: [pre-commit]
+        files: '\.go$'
+
+  - repo: https://github.com/dnephin/pre-commit-golang
+    rev: v0.5.1
+    hooks:
+      - id: go-fmt
+        stages: [pre-commit]
+      - id: go-mod-tidy
+        stages: [pre-commit]
+      - id: go-unit-tests
+        args: ["-short"]
+        stages: [pre-commit]
+        files: '\.go$'
+
+  - repo: local
+    hooks:
+      - id: go-vet
+        name: go-vet
+        entry: go vet ./...
+        language: system
+        types: [go]
+        pass_filenames: false
+        stages: [pre-commit]
+        files: '\.go$'
+
+  # Security check
+  - repo: local
+    hooks:
+      - id: gosec
+        name: gosec
+        entry: gosec -fmt text -severity medium ./...
+        language: system
+        types: [go]
+        pass_filenames: false
+        stages: [pre-commit]
+        files: '\.go$'
+
+  # Conventional commits check - only runs at commit-msg stage
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.1.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: []
+        always_run: true
+
+  # General file checks - runs at pre-commit stage
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        stages: [pre-commit]
+      - id: end-of-file-fixer
+        stages: [pre-commit]
+      - id: check-yaml
+        args: ["--unsafe"]
+        stages: [pre-commit]
+      - id: check-added-large-files
+        args: ["--maxkb=1000"]
+        stages: [pre-commit]

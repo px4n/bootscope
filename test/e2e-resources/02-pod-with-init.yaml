@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app-with-init
+  namespace: bootscope-test
+spec:
+  initContainers:
+    - name: init-myservice
+      image: busybox:1.28
+      command: ["sh", "-c", "echo 'Waiting for myservice' && sleep 5"]
+      resources:
+        requests:
+          memory: "32Mi"
+          cpu: "25m"
+        limits:
+          memory: "64Mi"
+          cpu: "50m"
+    - name: init-mydb
+      image: busybox:1.28
+      command: ["sh", "-c", "echo 'Waiting for mydb' && sleep 10"]
+      resources:
+        requests:
+          memory: "32Mi"
+          cpu: "25m"
+        limits:
+          memory: "64Mi"
+          cpu: "50m"
+  containers:
+    - name: myapp
+      image: busybox:1.28
+      command: ["sh", "-c", "echo The app is running! && sleep 3600"]
+      resources:
+        requests:
+          memory: "32Mi"
+          cpu: "25m"
+        limits:
+          memory: "64Mi"
+          cpu: "50m"
