@@ -3,6 +3,12 @@ name: Security Scan
 on:
   pull_request:
     branches: [develop]
+    paths:
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/security.yml"
+      - "Makefile"
   schedule:
     - cron: "0 19 * * 6"
   workflow_dispatch:
